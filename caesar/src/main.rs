@@ -1,7 +1,7 @@
 use std::io;
 
-mod cli;
 mod caesar;
+mod cli;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();

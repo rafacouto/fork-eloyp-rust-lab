@@ -53,7 +53,7 @@ pub(super) fn parse(args: &[String]) -> Result<Args, ArgsError> {
                 }
                 match args[arg_val].parse() {
                     Ok(val) => parsed_args.key = val,
-                    Err(_error) => return Err(ArgsError)
+                    Err(_error) => return Err(ArgsError),
                 }
             }
             "-i" => {
@@ -70,12 +70,8 @@ pub(super) fn parse(args: &[String]) -> Result<Args, ArgsError> {
                 }
                 parsed_args.output = args[arg_val].to_string()
             }
-            "-e" => {
-                parsed_args.encrypt = true
-            }
-            "-d" => {
-                parsed_args.decrypt = true
-            }
+            "-e" => parsed_args.encrypt = true,
+            "-d" => parsed_args.decrypt = true,
             _ => {}
         }
     }
@@ -98,14 +94,18 @@ pub struct Args {
 
 impl Display for Args {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Received arguments are:
+        write!(
+            f,
+            "Received arguments are:
         -h {}
         -k {}
         -o {}
         -i {}
         -e {}
         -d {}
-        ", self.help, self.key, self.output, self.input, self.encrypt, self.decrypt)
+        ",
+            self.help, self.key, self.output, self.input, self.encrypt, self.decrypt
+        )
     }
 }
 
@@ -126,7 +126,7 @@ impl Error for ArgsError {
 
 #[cfg(test)]
 mod test {
-    use crate::cli::args::{ArgsError, parse};
+    use crate::cli::args::{parse, ArgsError};
 
     #[test]
     fn it_parses_args_for_encryption() {
@@ -150,11 +150,7 @@ mod test {
 
     #[test]
     fn it_parses_args_for_decryption() {
-        let args = vec![
-            "-k".to_string(),
-            "10".to_string(),
-            "-d".to_string(),
-        ];
+        let args = vec!["-k".to_string(), "10".to_string(), "-d".to_string()];
         let result = parse(&args).unwrap();
 
         assert_eq!(10, result.key);
@@ -163,22 +159,14 @@ mod test {
 
     #[test]
     fn it_exits_if_help_present() {
-        let args = vec![
-            "-h".to_string(),
-            "-k".to_string(),
-            "10".to_string(),
-        ];
+        let args = vec!["-h".to_string(), "-k".to_string(), "10".to_string()];
         let result = parse(&args).unwrap_err();
         assert_eq!(ArgsError, result);
     }
 
     #[test]
     fn it_exits_if_version_present() {
-        let args = vec![
-            "-v".to_string(),
-            "-k".to_string(),
-            "10".to_string(),
-        ];
+        let args = vec!["-v".to_string(), "-k".to_string(), "10".to_string()];
         let result = parse(&args).unwrap();
         assert_eq!(true, result.version);
         assert_eq!(0, result.key);
@@ -186,27 +174,21 @@ mod test {
 
     #[test]
     fn it_returns_error_when_missing_key_param_value() {
-        let args = vec![
-            "-k".to_string(),
-        ];
+        let args = vec!["-k".to_string()];
         let result = parse(&args).unwrap_err();
         assert_eq!(ArgsError, result)
     }
 
     #[test]
     fn it_returns_error_when_missing_input_param_value() {
-        let args = vec![
-            "-i".to_string(),
-        ];
+        let args = vec!["-i".to_string()];
         let result = parse(&args).unwrap_err();
         assert_eq!(ArgsError, result)
     }
 
     #[test]
     fn it_returns_error_when_missing_output_param_value() {
-        let args = vec![
-            "-o".to_string(),
-        ];
+        let args = vec!["-o".to_string()];
         let result = parse(&args).unwrap_err();
         assert_eq!(ArgsError, result)
     }
@@ -220,22 +202,15 @@ mod test {
 
     #[test]
     fn it_returns_error_when_cannot_parse_arg_val() {
-        let args = vec![
-            "-k".to_string(),
-            "aaa".to_string(),
-        ];
+        let args = vec!["-k".to_string(), "aaa".to_string()];
         let res = parse(&args).unwrap_err();
         assert_eq!(ArgsError, res)
     }
 
     #[test]
     fn it_returns_error_when_encrypt_and_decrypt_are_activated() {
-        let args = vec![
-            "-e".to_string(),
-            "-d".to_string(),
-        ];
+        let args = vec!["-e".to_string(), "-d".to_string()];
         let res = parse(&args).unwrap_err();
         assert_eq!(ArgsError, res)
     }
 }
-

@@ -1,236 +1,170 @@
-use std::collections::HashMap;
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
-
 pub struct Caesar {
-    alphabet_pos: [char; 26],
-    alphabet_dic: HashMap<char, usize>,
+    rotated_encrypt: Vec<char>,
+    rotated_decrypt: Vec<char>,
 }
 
 impl Caesar {
-    pub fn new() -> Self {
-        let alphabet_pos = [
-            'a', 'b', 'c', 'd', 'e',
-            'f', 'g', 'h', 'i', 'j',
-            'k', 'l', 'm', 'n', 'o',
-            'p', 'q', 'r', 's', 't',
-            'u', 'v', 'w', 'x', 'y', 'z'
-        ];
-        let mut alphabet_dic = HashMap::new();
-        for (index, letter) in alphabet_pos.iter().enumerate() {
-            alphabet_dic.insert(*letter, index);
-        }
-        Caesar {
-            alphabet_pos,
-            alphabet_dic,
+    pub fn with_key(key: i32) -> Self {
+        Self {
+            rotated_encrypt: Caesar::precalc_rotated(key),
+            rotated_decrypt: Caesar::precalc_rotated(-key),
         }
     }
 
-    pub fn exec(&self, input: &str, key: i32, dir: Mode) -> Result<String, KeyError> {
-        if key.is_negative() {
-            return Err(KeyError);
+    const ASCII_A_LOWER: u8 = b'a';
+    const ASCII_A_UPPER: u8 = b'A';
+
+    #[inline]
+    pub fn encrypt(&self, s: &str) -> String {
+        Caesar::rotate_str(s, &self.rotated_encrypt)
+    }
+
+    #[inline]
+    pub fn decrypt(&self, s: &str) -> String {
+        Caesar::rotate_str(s, &self.rotated_decrypt)
+    }
+
+    fn rotate_str(s: &str, rotated_chars: &[char]) -> String {
+        s.chars()
+            .map(|c| match c.is_ascii_alphabetic() {
+                false => c,
+                true => match c.is_ascii_uppercase() {
+                    true => rotated_chars[(c as u8 - Caesar::ASCII_A_UPPER) as usize],
+                    false => rotated_chars[(c as u8 - Caesar::ASCII_A_LOWER) as usize]
+                        .to_ascii_lowercase(),
+                },
+            })
+            .collect()
+    }
+
+    fn precalc_rotated(key: i32) -> Vec<char> {
+        let mut offset = key % 26;
+        if offset.is_negative() {
+            offset += 26;
         }
-        if key > 999_999 {
-            return Err(KeyError);
-        }
-
-        let mut result = String::new();
-
-        for ic in input.chars() {
-            let ic_lower: Vec<_> = ic.to_lowercase().collect();
-            match self.alphabet_dic.get(ic_lower.first().unwrap()) {
-                Some(index) => {
-                    let calc_index: usize = match dir {
-                        Mode::Encrypt => calc_index_forward(index, key),
-                        Mode::Decrypt => calc_index_backward(index, key)
-                    };
-                    let matched_char = self.alphabet_pos.get(calc_index).unwrap().to_string();
-                    if ic.is_uppercase() {
-                        result.push_str(matched_char.to_uppercase().as_str());
-                        continue;
-                    }
-                    result.push_str(matched_char.as_str());
-                }
-                None => result.push_str(ic.to_string().as_str())
-            }
-        }
-        Ok(result)
+        (offset as u8..26)
+            .chain(0..offset as u8)
+            .map(|ascii| (Caesar::ASCII_A_UPPER + ascii) as char)
+            .collect()
     }
 }
-
-pub enum Mode {
-    Encrypt,
-    Decrypt,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct KeyError;
-
-const KEY_ERROR_MSG: &str = "the key parameter must be a positive number between 0 - 999999.";
-
-impl Display for KeyError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", KEY_ERROR_MSG)
-    }
-}
-
-impl Error for KeyError {
-    fn description(&self) -> &str {
-        KEY_ERROR_MSG
-    }
-}
-
-
-fn calc_index_forward(letter_index: &usize, key: i32) -> usize {
-    let li = *letter_index as i32;
-    let result = (li + key) % 26;
-    result as usize
-}
-
-fn calc_index_backward(letter_index: &usize, key: i32) -> usize {
-    let li = *letter_index as i32;
-    let mut result = (li - key) % 26;
-    if result.is_negative() {
-        result += 26
-    }
-    result as usize
-}
-
 
 #[cfg(test)]
 mod tests {
-    use crate::caesar::{Caesar, KeyError, Mode};
+    use super::*;
 
     #[test]
     fn it_encrypts_basic_string() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("ABC", 1, Mode::Encrypt).unwrap();
+        let caesar = Caesar::with_key(1);
+        let result = caesar.encrypt("ABC");
         assert_eq!("BCD", result);
     }
 
     #[test]
     fn it_decrypts_basic_string() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("BCD", 1, Mode::Decrypt).unwrap();
+        let caesar = Caesar::with_key(1);
+        let result = caesar.decrypt("BCD");
         assert_eq!("ABC", result);
     }
 
     #[test]
     fn it_ignores_but_keeps_non_alphabet_characters() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("(ABC)D", 1, Mode::Encrypt).unwrap();
+        let caesar = Caesar::with_key(1);
+        let result = caesar.encrypt("(ABC)D");
         assert_eq!("(BCD)E", result);
     }
 
     #[test]
     fn it_respects_spaces() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("A B C", 1, Mode::Encrypt).unwrap();
+        let caesar = Caesar::with_key(1);
+        let result = caesar.encrypt("A B C");
         assert_eq!("B C D", result);
     }
 
     #[test]
     fn it_respects_multiline() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("A \n B \n C", 1, Mode::Encrypt).unwrap();
+        let caesar = Caesar::with_key(1);
+        let result = caesar.encrypt("A \n B \n C");
         assert_eq!("B \n C \n D", result);
     }
 
     #[test]
     fn it_respects_capitalization() {
-        let caesar = Caesar::new();
-
-        let result = caesar.exec("ABC", 1, Mode::Encrypt).unwrap();
+        let caesar = Caesar::with_key(1);
+        let result = caesar.encrypt("ABC");
         assert_eq!("BCD", result);
-
-        let result = caesar.exec("abc", 1, Mode::Encrypt).unwrap();
+        let result = caesar.encrypt("abc");
         assert_eq!("bcd", result);
     }
 
     #[test]
     fn it_ignores_but_keeps_utf8_chars() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("ЗaЗ", 1, Mode::Encrypt).unwrap();
+        let caesar = Caesar::with_key(1);
+        let result = caesar.encrypt("ЗaЗ");
         assert_eq!("ЗbЗ", result)
     }
 
     #[test]
     fn it_handles_last_alpha_pos_encrypt() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("ABC", 26, Mode::Encrypt).unwrap();
+        let caesar = Caesar::with_key(26);
+        let result = caesar.encrypt("ABC");
         assert_eq!("ABC", result);
     }
 
     #[test]
     fn it_handles_last_alpha_pos_decrypt() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("ABC", 26, Mode::Decrypt).unwrap();
+        let caesar = Caesar::with_key(26);
+        let result = caesar.decrypt("ABC");
         assert_eq!("ABC", result);
     }
 
     #[test]
     // Letters close to the end and displacement exceeds last alpha.
     fn it_handles_relative_upper_overflow() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("XY", 3, Mode::Encrypt).unwrap();
+        let caesar = Caesar::with_key(3);
+        let result = caesar.encrypt("XY");
         assert_eq!("AB", result);
     }
 
     #[test]
     // Letters close to the end and displacement exceeds last alpha.
     fn it_handles_relative_lower_overflow() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("BC", 3, Mode::Decrypt).unwrap();
+        let caesar = Caesar::with_key(3);
+        let result = caesar.decrypt("BC");
         assert_eq!("YZ", result);
     }
 
     #[test]
     // Two times the alphabet + 2 (forward).
     fn it_handles_upper_bound_overflow() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("ABC", 54, Mode::Encrypt).unwrap();
+        let caesar = Caesar::with_key(54);
+        let result = caesar.encrypt("ABC");
         assert_eq!("CDE", result);
     }
 
     #[test]
     // Two times the alphabet + 3 (backward).
     fn it_handles_lower_bound_overflow() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("ABC", 55, Mode::Decrypt).unwrap();
+        let caesar = Caesar::with_key(55);
+        let result = caesar.decrypt("ABC");
         assert_eq!("XYZ", result);
     }
 
     #[test]
     fn it_returns_same_on_no_key() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("ABC", 0, Mode::Encrypt).unwrap();
+        let caesar = Caesar::with_key(0);
+        let result = caesar.encrypt("ABC");
         assert_eq!("ABC", result);
     }
 
     #[test]
-    fn it_returns_error_on_negative_key() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("ABC", -1, Mode::Encrypt).unwrap_err();
-        assert_eq!(KeyError, result);
-    }
-
-    #[test]
-    fn errors_key_has_display() {
-        let error = KeyError {};
-        assert_eq!("the key parameter must be a positive number between 0 - 999999.", format!("{}", error));
-    }
-
-    #[test]
-    fn it_returns_error_on_max_key_size() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("ABC", 1_000_000, Mode::Encrypt).unwrap_err();
-        assert_eq!(KeyError, result);
-    }
-
-    #[test]
-    fn it_deals_with_max_key_size() {
-        let caesar = Caesar::new();
-        let result = caesar.exec("ABC", 999_999, Mode::Encrypt).unwrap();
-        assert_eq!("NOP", result);
+    fn wikipedia_test() {
+        let plaintext = "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG";
+        let ciphertext = "QEB NRFZH YOLTK CLU GRJMP LSBO QEB IXWV ALD";
+        let caesar = Caesar::with_key(-3);
+        let result = caesar.encrypt(plaintext);
+        assert_eq!(ciphertext, result);
+        let result = caesar.decrypt(ciphertext);
+        assert_eq!(plaintext, result);
     }
 }

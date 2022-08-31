@@ -1,14 +1,17 @@
+use crate::caesar::Caesar;
+
 use std::error::Error;
 use std::fs;
 use std::io::{BufRead, Write};
 
-use crate::{caesar, cli};
-
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn with<R, W>(args: &[String], mut reader: R, mut writer: W) -> Result<(), Box<dyn Error>>
-    where R: BufRead, W: Write {
-    let args = cli::args::parse(args)?;
+where
+    R: BufRead,
+    W: Write,
+{
+    let args = super::args::parse(args)?;
     if args.version {
         writer.write_all(format!("{}{}\n", "v", VERSION).as_bytes())?;
         return Ok(());
@@ -19,13 +22,14 @@ pub fn with<R, W>(args: &[String], mut reader: R, mut writer: W) -> Result<(), B
     } else {
         input = fs::read_to_string(args.input)?;
     }
-    let mode: caesar::Mode = if args.decrypt {
-        caesar::Mode::Decrypt
+
+    let caesar = Caesar::with_key(args.key);
+    let result = if args.decrypt {
+        caesar.decrypt(input.as_str())
     } else {
-        caesar::Mode::Encrypt
+        caesar.encrypt(input.as_str())
     };
-    let caesar = caesar::Caesar::new();
-    let result = caesar.exec(input.as_str(), args.key, mode)?;
+
     if !args.output.is_empty() {
         fs::write(args.output, result)?;
     } else {
@@ -34,19 +38,15 @@ pub fn with<R, W>(args: &[String], mut reader: R, mut writer: W) -> Result<(), B
     Ok(())
 }
 
-
 #[cfg(test)]
 mod test {
     use uuid::Uuid;
 
-    use crate::cli::exec::{VERSION, with};
+    use crate::cli::exec::{with, VERSION};
 
     #[test]
     fn it_uses_stdin_stdout() {
-        let args = vec![
-            "-k".to_string(),
-            "1".to_string(),
-        ];
+        let args = vec!["-k".to_string(), "1".to_string()];
         let input: &[u8] = b"Learning Rust";
         let mut output = Vec::new();
 
@@ -92,9 +92,7 @@ mod test {
 
     #[test]
     fn it_shows_version() {
-        let args = vec![
-            "-v".to_string(),
-        ];
+        let args = vec!["-v".to_string()];
         let input: &[u8] = b"";
         let mut output = Vec::new();
 
